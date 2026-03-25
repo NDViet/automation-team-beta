@@ -1,0 +1,12 @@
+api:
+  base:
+    url: http://localhost:8180
+  graphql:
+    path: /graphql
+  default:
+    contentType: application/json
+    accept: application/json
+  auth:
+    type: bearer
+    bearer:
+      token: local-api-token

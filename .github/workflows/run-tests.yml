@@ -1,0 +1,169 @@
+name: Run API Automation Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      aut_image:
+        description: 'Override AUT image'
+        required: false
+        default: 'ghcr.io/ndviet/aut-api-testing:latest'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-image:
+    name: Build & Push Test Runner Image
+    runs-on: ubuntu-latest
+    outputs:
+      ghcr-sha-tag: ${{ steps.sha-tag.outputs.ghcr-sha-tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Export SHA tag
+        id: sha-tag
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "ghcr-sha-tag=ghcr.io/${REPO_LOWER}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            BASE_IMAGE=ndviet/test-automation-java-common:latest
+            GITHUB_ACTOR=${{ github.actor }}
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+
+  run-tests:
+    name: Execute API E2E Tests
+    needs: build-image
+    runs-on: ubuntu-latest
+    env:
+      AUT_IMAGE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.aut_image || 'ghcr.io/ndviet/aut-api-testing:latest' }}
+      APP_BEARER_TOKEN: local-api-token
+      AUT_HOST_PORT: 18180
+      POSTGRES_HOST_PORT: 15432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull test-runner image
+        run: docker pull ${{ needs.build-image.outputs.ghcr-sha-tag }}
+
+      - name: Pull AUT image
+        run: |
+          docker compose pull postgres aut-backend
+
+      - name: Start AUT stack
+        run: |
+          docker compose up -d postgres aut-backend
+          docker compose ps
+
+      - name: Wait for AUT readiness
+        run: |
+          for attempt in {1..36}; do
+            STATUS=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' api-test-backend)
+            if [ "$STATUS" = "healthy" ]; then
+              exit 0
+            fi
+            if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ]; then
+              docker compose logs aut-backend postgres
+              exit 1
+            fi
+            sleep 5
+          done
+          docker compose logs aut-backend postgres
+          exit 1
+
+      - name: Run tests against AUT
+        run: |
+          docker run --rm \
+            --name automation-team-beta-runner \
+            --network automation-api-stack_default \
+            -e API_BASE_URL=http://aut-backend:8080 \
+            -e API_BEARER_TOKEN=local-api-token \
+            ${{ secrets.PLATFORM_URL && format('-e PLATFORM_URL={0}', secrets.PLATFORM_URL) || '' }} \
+            ${{ secrets.PLATFORM_API_KEY && format('-e PLATFORM_API_KEY={0}', secrets.PLATFORM_API_KEY) || '' }} \
+            -e TEST_ENV=ci \
+            -v ${{ github.workspace }}/build:/workspace/build \
+            ${{ needs.build-image.outputs.ghcr-sha-tag }} \
+            ./gradlew test --no-daemon \
+              -Dapi.base.url=http://aut-backend:8080 \
+              -Dapi.auth.bearer.token=local-api-token
+
+      - name: Tear down AUT stack
+        if: always()
+        run: docker compose down -v
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-html-report-${{ github.run_number }}
+          path: build/reports/tests/test/
+          retention-days: 14
+
+      - name: Upload XML results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-xml-results-${{ github.run_number }}
+          path: build/test-results/test/
+          retention-days: 14
+
+      - name: Publish test result summary
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: TestNG Results
+          path: build/test-results/test/TEST-*.xml
+          reporter: java-junit
+          fail-on-error: false

@@ -1,0 +1,65 @@
+name: automation-api-stack
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: api-test-postgres
+    environment:
+      POSTGRES_DB: apitesting
+      POSTGRES_USER: apitesting
+      POSTGRES_PASSWORD: apitesting
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apitesting -d apitesting"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  aut-backend:
+    image: ${AUT_IMAGE:-ghcr.io/ndviet/aut-api-testing:latest}
+    container_name: api-test-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/apitesting
+      SPRING_DATASOURCE_USERNAME: apitesting
+      SPRING_DATASOURCE_PASSWORD: apitesting
+      APP_BEARER_TOKEN: ${APP_BEARER_TOKEN:-local-api-token}
+      JACOCO_AGENT_OPTIONS: destfile=/coverage/jacoco.exec,append=true,output=file
+    ports:
+      - "${AUT_HOST_PORT:-8180}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    volumes:
+      - ./build/coverage:/coverage
+
+  test-runner:
+    profiles: [test]
+    image: ${TEST_RUNNER_IMAGE:-automation-team-beta:local}
+    container_name: automation-team-beta-runner
+    depends_on:
+      aut-backend:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: http://aut-backend:8080
+      API_BEARER_TOKEN: ${APP_BEARER_TOKEN:-local-api-token}
+      PLATFORM_URL: ${PLATFORM_URL:-}
+      PLATFORM_API_KEY: ${PLATFORM_API_KEY:-}
+      TEST_ENV: ${TEST_ENV:-local}
+    volumes:
+      - ./build:/workspace/build
+    command:
+      - sh
+      - -c
+      - |
+        until wget -qO- http://aut-backend:8080/actuator/health >/dev/null 2>&1; do
+          echo "[test-runner] waiting for AUT readiness..."
+          sleep 5
+        done
+        ./gradlew test --no-daemon -Dapi.base.url=$$API_BASE_URL -Dapi.auth.bearer.token=$$API_BEARER_TOKEN

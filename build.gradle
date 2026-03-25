@@ -1,0 +1,95 @@
+plugins {
+  id 'java'
+  id 'com.diffplug.spotless' version '7.0.2'
+}
+
+group = 'org.ndviet'
+version = '1.0.0-SNAPSHOT'
+
+java {
+  sourceCompatibility = JavaVersion.VERSION_21
+  targetCompatibility = JavaVersion.VERSION_21
+}
+
+ext {
+  fwkVersion      = '26.3.0-SNAPSHOT'
+  platformVersion = '1.0.0-SNAPSHOT'
+  testngVersion   = '7.11.0'
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    name = 'NDViet-FWK'
+    url = uri('https://maven.pkg.github.com/NDViet/test-automation-fwk')
+    credentials {
+      username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR') ?: ''
+      password = project.findProperty('gpr.token') ?: System.getenv('GITHUB_TOKEN') ?: ''
+    }
+  }
+  maven {
+    name = 'NDViet-Platform'
+    url = uri('https://maven.pkg.github.com/NDViet/test-automation-platform')
+    credentials {
+      username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR') ?: ''
+      password = project.findProperty('gpr.token') ?: System.getenv('GITHUB_TOKEN') ?: ''
+    }
+  }
+}
+
+dependencies {
+  testImplementation "org.ndviet:test-libraries-api:${fwkVersion}"
+  testImplementation "org.ndviet:platform-testkit-java:${platformVersion}"
+  testImplementation "org.testng:testng:${testngVersion}"
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+}
+
+configurations.all {
+  resolutionStrategy.cacheChangingModulesFor 1, 'hours'
+}
+
+spotless {
+  java {
+    target 'src/**/*.java'
+    googleJavaFormat('1.25.2')
+    removeUnusedImports()
+    trimTrailingWhitespace()
+    endWithNewline()
+  }
+}
+
+test {
+  useTestNG {
+    def suite = System.getProperty('suite', 'testng.xml')
+    suites "src/test/resources/${suite}"
+  }
+
+  workingDir = project.projectDir
+  jvmArgs '-Xmx1g'
+
+  systemProperty 'configuration.base',
+          "${project.projectDir}/src/test/resources/configuration.yaml"
+
+  systemProperty 'api.base.url',
+          System.getProperty('api.base.url', System.getenv('API_BASE_URL') ?: 'http://localhost:8180')
+
+  systemProperty 'api.auth.bearer.token',
+          System.getProperty('api.auth.bearer.token', System.getenv('API_BEARER_TOKEN') ?: 'local-api-token')
+
+  systemProperty 'api.graphql.path',
+          System.getProperty('api.graphql.path', System.getenv('API_GRAPHQL_PATH') ?: '/graphql')
+
+  testLogging {
+    events 'passed', 'skipped', 'failed'
+    showExceptions = true
+    showCauses = true
+    showStackTraces = false
+    showStandardStreams = false
+  }
+
+  reports {
+    html.required = true
+    junitXml.required = true
+  }
+}
