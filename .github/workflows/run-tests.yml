@@ -19,6 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  checks: write
   contents: read
   packages: write
 
@@ -160,10 +161,15 @@ jobs:
           retention-days: 14
 
       - name: Publish test result summary
-        if: always()
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: dorny/test-reporter@v1
         with:
           name: TestNG Results
           path: build/test-results/test/TEST-*.xml
           reporter: java-junit
           fail-on-error: false
+
+      - name: Note skipped reporter on fork pull requests
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Skipping dorny/test-reporter on fork pull requests because the workflow token cannot create check runs in the base repository." >> "$GITHUB_STEP_SUMMARY"
