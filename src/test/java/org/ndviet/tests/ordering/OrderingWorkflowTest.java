@@ -1,5 +1,6 @@
 package org.ndviet.tests.ordering;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.BLOCKER;
 import static com.platform.testframework.annotation.TestMetadata.Severity.CRITICAL;
 
@@ -19,6 +20,12 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "Ordering")
+@AffectedBy({
+    "org.ndviet.testing.ordering.OrderingService",
+    "org.ndviet.testing.ordering.CustomerController",
+    "org.ndviet.testing.ordering.OrderController",
+    "org.ndviet.testing.catalog.CatalogService"
+})
 public class OrderingWorkflowTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();
@@ -79,6 +86,12 @@ public class OrderingWorkflowTest extends BaseApiTest {
 
   @Test(description = "TC006: Query placed order via GraphQL", groups = {"ordering", "graphql"})
   @TestMetadata(severity = CRITICAL, story = "Order Query")
+  @AffectedBy({
+      "org.ndviet.testing.ordering.OrderingService",
+      "org.ndviet.testing.ordering.OrderController",
+      "org.ndviet.testing.ordering.OrderingGraphqlController",
+      "org.ndviet.testing.catalog.CatalogService"
+  })
   public void queryPlacedOrderViaGraphQl() {
     String email = "graphql-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
     String sku = "SKU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();

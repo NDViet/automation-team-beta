@@ -1,5 +1,6 @@
 package org.ndviet.tests.e2e;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.BLOCKER;
 import static com.platform.testframework.annotation.TestMetadata.Severity.CRITICAL;
 
@@ -18,6 +19,12 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "API End-to-End Workflows")
+@AffectedBy({
+    "org.ndviet.testing.catalog.*",
+    "org.ndviet.testing.ordering.*",
+    "org.ndviet.testing.app.SecurityConfiguration",
+    "org.ndviet.testing.app.PlatformGraphqlController"
+})
 public class ApiEndToEndWorkflowTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();

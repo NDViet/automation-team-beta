@@ -1,5 +1,6 @@
 package org.ndviet.tests.authentication;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.BLOCKER;
 import static com.platform.testframework.annotation.TestMetadata.Severity.CRITICAL;
 import static com.platform.testframework.annotation.TestMetadata.Severity.NORMAL;
@@ -13,6 +14,10 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "Authentication")
+@AffectedBy({
+    "org.ndviet.testing.app.SecurityConfiguration",
+    "org.ndviet.testing.app.ApplicationSecurityProperties"
+})
 public class AuthenticationApiTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();

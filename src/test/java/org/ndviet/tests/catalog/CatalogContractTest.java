@@ -1,5 +1,6 @@
 package org.ndviet.tests.catalog;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.CRITICAL;
 import static com.platform.testframework.annotation.TestMetadata.Severity.NORMAL;
 
@@ -18,6 +19,12 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "Catalog REST Contract")
+@AffectedBy({
+    "org.ndviet.testing.catalog.CatalogService",
+    "org.ndviet.testing.catalog.ProductController",
+    "org.ndviet.testing.catalog.ProductRepository",
+    "org.ndviet.testing.catalog.ProductResponse"
+})
 public class CatalogContractTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();

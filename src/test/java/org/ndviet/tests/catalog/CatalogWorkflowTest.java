@@ -1,5 +1,6 @@
 package org.ndviet.tests.catalog;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.BLOCKER;
 import static com.platform.testframework.annotation.TestMetadata.Severity.NORMAL;
 
@@ -14,6 +15,10 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "Catalog")
+@AffectedBy({
+    "org.ndviet.testing.catalog.CatalogService",
+    "org.ndviet.testing.catalog.ProductController"
+})
 public class CatalogWorkflowTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();
@@ -21,6 +26,11 @@ public class CatalogWorkflowTest extends BaseApiTest {
 
   @Test(description = "TC003: Create product via REST and fetch it via GraphQL", groups = {"smoke", "catalog", "graphql"})
   @TestMetadata(severity = BLOCKER, story = "Product Creation")
+  @AffectedBy({
+      "org.ndviet.testing.catalog.CatalogService",
+      "org.ndviet.testing.catalog.ProductController",
+      "org.ndviet.testing.catalog.ProductGraphqlController"
+  })
   public void createProductAndFetchItViaGraphQl() {
     String sku = "SKU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     CreateProductRequest request = new CreateProductRequest(

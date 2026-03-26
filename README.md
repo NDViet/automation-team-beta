@@ -31,7 +31,7 @@ Start the AUT stack from `aut-api-testing` first, or let this project run it via
 cd /Users/viet.dnguyen/code/automation-team-beta
 ./gradlew test \
   -Dapi.base.url=http://localhost:8180 \
-  -Dapi.auth.bearer.token=local-api-token
+  -Dapi.auth.bearer.token=local-api-token --rerun
 ```
 
 ## Container run

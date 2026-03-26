@@ -1,5 +1,6 @@
 package org.ndviet.tests.graphql;
 
+import com.platform.testframework.annotation.AffectedBy;
 import static com.platform.testframework.annotation.TestMetadata.Severity.CRITICAL;
 import static com.platform.testframework.annotation.TestMetadata.Severity.NORMAL;
 
@@ -19,6 +20,13 @@ import org.ndviet.tests.base.BaseApiTest;
 import org.testng.annotations.Test;
 
 @TestMetadata(owner = "automation-team-beta", feature = "GraphQL Contract")
+@AffectedBy({
+    "org.ndviet.testing.app.PlatformGraphqlController",
+    "org.ndviet.testing.catalog.ProductGraphqlController",
+    "org.ndviet.testing.ordering.OrderingGraphqlController",
+    "org.ndviet.testing.catalog.CatalogService",
+    "org.ndviet.testing.ordering.OrderingService"
+})
 public class GraphQlContractTest extends BaseApiTest {
 
   private final CatalogClient catalogClient = new CatalogClient();
